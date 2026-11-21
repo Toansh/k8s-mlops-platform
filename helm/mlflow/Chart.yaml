@@ -1,0 +1,8 @@
+apiVersion: v2
+name: mlflow
+description: Enterprise-grade MLflow Tracking Server Helm Chart for Kubernetes MLOps
+type: application
+version: 0.1.0
+appVersion: "2.14.0"
+maintainers:
+  - name: Ansh Taneja

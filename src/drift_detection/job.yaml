@@ -1,0 +1,58 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mlops-drift-detection-job
+  namespace: mlops-serving
+  labels:
+    app.kubernetes.io/name: drift-detector
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: k8s-mlops-platform
+spec:
+  schedule: "0 2 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 1800
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: drift-detector
+            app.kubernetes.io/part-of: k8s-mlops-platform
+        spec:
+          serviceAccountName: drift-detector-sa
+          restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            fsGroup: 10001
+          containers:
+            - name: statistical-drift-engine
+              image: k8s-mlops-platform/drift-detector:1.0.0
+              imagePullPolicy: IfNotPresent
+              command:
+                - python
+                - -m
+                - src.drift_detection.drift_detector
+              args:
+                - "--output-dir=/data/reports"
+                - "--ks-alpha=0.05"
+                - "--psi-threshold=0.20"
+              resources:
+                requests:
+                  cpu: "250m"
+                  memory: "512Mi"
+                limits:
+                  cpu: "1000m"
+                  memory: "1Gi"
+              volumeMounts:
+                - name: reports-volume
+                  mountPath: /data/reports
+          volumes:
+            - name: reports-volume
+              emptyDir:
+                sizeLimit: 256Mi

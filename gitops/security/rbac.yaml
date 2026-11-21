@@ -1,0 +1,85 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: model-serving-sa
+  namespace: mlops-serving
+  labels:
+    app.kubernetes.io/name: model-serving
+    app.kubernetes.io/part-of: k8s-mlops-platform
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/eks-mlops-prod-model-serving-s3-access
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: model-serving-runtime-role
+  namespace: mlops-serving
+  labels:
+    app.kubernetes.io/name: model-serving
+    app.kubernetes.io/part-of: k8s-mlops-platform
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: model-serving-runtime-binding
+  namespace: mlops-serving
+  labels:
+    app.kubernetes.io/name: model-serving
+    app.kubernetes.io/part-of: k8s-mlops-platform
+subjects:
+  - kind: ServiceAccount
+    name: model-serving-sa
+    namespace: mlops-serving
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: model-serving-runtime-role
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: drift-detector-sa
+  namespace: mlops-serving
+  labels:
+    app.kubernetes.io/name: drift-detector
+    app.kubernetes.io/part-of: k8s-mlops-platform
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/eks-mlops-prod-drift-detector-s3-access
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: drift-detector-role
+  namespace: mlops-serving
+  labels:
+    app.kubernetes.io/name: drift-detector
+    app.kubernetes.io/part-of: k8s-mlops-platform
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: drift-detector-binding
+  namespace: mlops-serving
+  labels:
+    app.kubernetes.io/name: drift-detector
+    app.kubernetes.io/part-of: k8s-mlops-platform
+subjects:
+  - kind: ServiceAccount
+    name: drift-detector-sa
+    namespace: mlops-serving
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: drift-detector-role

@@ -1,0 +1,92 @@
+replicaCount: 3
+
+image:
+  repository: k8s-mlops-platform/model-serving
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  name: "model-serving-sa"
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/eks-mlops-prod-model-serving-s3-access"
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 25%
+    maxUnavailable: 0
+
+env:
+  MODEL_NAME: "k8s-platform-classifier"
+  MODEL_VERSION: "v1.2.0"
+  WEB_CONCURRENCY: "4"
+  LOG_LEVEL: "INFO"
+  AWS_DEFAULT_REGION: "us-east-1"
+
+resources:
+  requests:
+    cpu: 1000m
+    memory: 2Gi
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+
+probes:
+  readiness:
+    httpGet:
+      path: /health
+      port: 8000
+    initialDelaySeconds: 15
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+  liveness:
+    httpGet:
+      path: /health
+      port: 8000
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  customMetrics:
+    prometheus:
+      metricName: "http_requests_per_second"
+      targetAverageValue: "500"
+
+serviceMonitor:
+  enabled: true
+  interval: 15s
+  scrapeTimeout: 10s
+  path: /metrics
+  labels:
+    release: prometheus-stack
+
+nodeSelector:
+  role: mlops-worker
+
+tolerations: []
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - model-serving
+          topologyKey: "kubernetes.io/hostname"

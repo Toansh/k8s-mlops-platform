@@ -1,0 +1,80 @@
+replicaCount: 2
+
+image:
+  repository: ghcr.io/mlflow/mlflow
+  tag: "v2.14.0"
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  name: "mlflow"
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/eks-mlops-prod-mlflow-s3-access"
+
+service:
+  type: ClusterIP
+  port: 5000
+  targetPort: 5000
+
+ingress:
+  enabled: false
+  className: "alb"
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/target-type: ip
+  hosts:
+    - host: mlflow.mlops.internal
+      paths:
+        - path: /
+          pathType: Prefix
+
+config:
+  backendStoreUri: "postgresql://mlflow_user:mlflow_secure_password@postgres-postgresql.mlops-infra.svc.cluster.local:5432/mlflow_db"
+  defaultArtifactRoot: "s3://k8s-mlops-artifacts-prod-us-east-1/mlflow"
+  artifactsDestination: "s3://k8s-mlops-artifacts-prod-us-east-1/mlflow"
+  serveArtifacts: false
+  workers: 4
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+
+probes:
+  liveness:
+    httpGet:
+      path: /health
+      port: 5000
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readiness:
+    httpGet:
+      path: /health
+      port: 5000
+    initialDelaySeconds: 15
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+nodeSelector:
+  role: mlops-worker
+
+tolerations: []
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - mlflow
+          topologyKey: "kubernetes.io/hostname"

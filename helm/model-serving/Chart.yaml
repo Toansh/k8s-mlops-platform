@@ -1,0 +1,8 @@
+apiVersion: v2
+name: model-serving
+description: Production-grade FastAPI Model Serving with Prometheus metrics & HPA v2
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+maintainers:
+  - name: Ansh Taneja
